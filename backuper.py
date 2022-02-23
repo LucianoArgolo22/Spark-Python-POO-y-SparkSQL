@@ -22,9 +22,10 @@ class SparkSessionYLogs:
 		return spark
 
 class CargaAbstracta:
-	def __init__(self,tabla,partition = None):
+	def __init__(self , tabla, base_de_datos, partition = None):
 		self.partition = partition
 		self.tabla = tabla
+        self.base_de_datos = base_de_datos
 
 
 	def get_contexts(self):
@@ -37,7 +38,7 @@ class CargaAbstracta:
 
 
 	def column_names(self):
-		query = spark.sql(f"select * from bi_corp_bdr.{self.tabla} limit 0")
+		query = spark.sql(f"select * from {self.base_de_datos}.{self.tabla} limit 0")
 		return query.columns
 
 	def colum_names_without_string(self):
@@ -72,7 +73,7 @@ class CargaAbstracta:
 			return " and ".join([partition.split("=")[0] + operator + "'" + partition.split("=")[1] + "'" for partition in self.get_partition(partition=partition, bkup=bkup)])
 
 	def tablas_DB(self):
-		tablas = spark.sql("show tables in bi_corp_bdr").collect()
+		tablas = spark.sql(f"show tables in {self.base_de_datos}").collect()
 		return [tabla[1] for tabla in tablas]
 
 	def tabla_in_DB(self):
@@ -102,7 +103,7 @@ class CargaAbstracta:
 		"""
 		Trae un string de las distintas particiones
 		"""
-		return f"select distinct {self.partition_without_string()} from bi_corp_bdr.{self.tabla}_bkup_dag order by {self.partition_without_string()} desc "
+		return f"select distinct {self.partition_without_string()} from {self.base_de_datos}.{self.tabla}_bkup_dag order by {self.partition_without_string()} desc "
 
 	def sort_partitions(self, limit = 1):	
 		"""
@@ -138,7 +139,7 @@ class CargaAbstracta:
 		return self.partition_table(tabla_partition).collect()[partition][0].split("/")
 
 	def partition_table(self, tabla_partition):
-		return spark.sql(f"show partitions bi_corp_bdr.{tabla_partition}")
+		return spark.sql(f"show partitions {self.base_de_datos}.{tabla_partition}")
 
 	def validacion_tiene_particiones(self, cantidad = 0, bkup = True):
 		"""
@@ -170,10 +171,10 @@ class ArmadoDeQueries(CargaAbstracta):
 		"""
 		Genera la Query para hacer el insert
 		"""
-		string = f"""	                insert overwrite table bi_corp_bdr.{tabla}_bkup_dag 
+		string = f"""	                insert overwrite table {self.base_de_datos}.{tabla}_bkup_dag 
 						partition ({(self.insert_partition())}) 
 						select {", ".join(self.filtering_partition_from_column_names())}
-						from bi_corp_bdr.{self.tabla}
+						from {self.base_de_datos}.{self.tabla}
 						where {self.insert_where()}
 						"""
 		log.info(f"La Query generada para insertar datos en la tabla backup de '{self.tabla}_bkup_dag' es: \n {string}")
@@ -185,11 +186,11 @@ class ArmadoDeQueries(CargaAbstracta):
 		Genera la Query para crear la tabla bkup en caso de que no exista
 		"""
 		partitions = self.partition_string() 
-		string = f"""	                 create external table if not exists bi_corp_bdr.{self.tabla}_bkup_dag 
+		string = f"""	                 create external table if not exists {self.base_de_datos}.{self.tabla}_bkup_dag 
 						({self.column_names_string()}) 
 						partitioned by ({partitions})
 						 stored as parquet 
-						 location 'hdfs://namesrvprod/santander/bi-corp/bdr/bkup/bkup_dag/{self.tabla}_bkup_dag'"""
+						 location 'hdfs://localserver/path/to/bkup_dag/{self.tabla}_bkup_dag'"""
 		log.info(f"La Query generada para crear la tabla backup de '{self.tabla}' es: \n {string}")
 		return string
 
@@ -207,15 +208,15 @@ class ArmadoDeQueries(CargaAbstracta):
 		                        when campo1 = campo2 then False 
 		                        else True
 		                        end as cumple
-		                from    (select 1 as id, count(*) as campo1 from bi_corp_bdr.{self.tabla} where {self.insert_where()}) a 
-		                        inner join (select 1 as id, count(*) as campo2 from bi_corp_bdr.{self.tabla}_bkup_dag where {self.insert_where(bkup=True)}) b
+		                from    (select 1 as id, count(*) as campo1 from {self.base_de_datos}.{self.tabla} where {self.insert_where()}) a 
+		                        inner join (select 1 as id, count(*) as campo2 from {self.base_de_datos}.{self.tabla}_bkup_dag where {self.insert_where(bkup=True)}) b
 		                        on  a.id = b.id	"""
 
 
 	def sql_sql(self):
 		
 		if self.tabla_in_DB():
-			log.info(f"La Tabla '{self.tabla}' se encuentra en la base de datos bi_corp_bdr")
+			log.info(f"La Tabla '{self.tabla}' se encuentra en la base de datos {self.base_de_datos}")
 			spark.sql(self.create_table_query())
 			
 			if self.validacion_tiene_particiones():
@@ -245,10 +246,10 @@ class ArmadoDeQueriesCargaInicial(ArmadoDeQueries):
 		y luego carga a partir de ese valor, todos los superiores con el operador ">" del método insert_where
 		"""
 		log.info("Partición que recibe insert_into_query(): {partition}")
-		string = f"""	                insert overwrite table bi_corp_bdr.{tabla}_bkup_dag 
+		string = f"""	                insert overwrite table {self.base_de_datos}.{tabla}_bkup_dag 
 						partition ({(self.partition_without_string())}) 
 						select *
-						from bi_corp_bdr.{self.tabla}
+						from {self.base_de_datos}.{self.tabla}
 						where {self.insert_where(partition, operator = ">=")}
 						"""
 		log.info(f"La Query generada para insertar datos en la tabla backup de '{self.tabla}_bkup_dag' es: \n {string}")
@@ -257,7 +258,7 @@ class ArmadoDeQueriesCargaInicial(ArmadoDeQueries):
 	def sql_sql(self,partition):
 		
 		if self.tabla_in_DB():
-			log.info(f"La Tabla '{self.tabla}' se encuentra en la base de datos bi_corp_bdr")
+			log.info(f"La Tabla '{self.tabla}' se encuentra en la base de datos {self.base_de_datos}")
 			spark.sql(self.create_table_query())
 			spark.sql(self.insert_into_query(partition))
 			log.info(f"TABLE {self.tabla}_bkup_dag LOADED")
@@ -286,7 +287,7 @@ class BorradoParticiones(CargaAbstracta):
 		if self.validacion_tiene_particiones(cantidad = max_partitions):
 			log.info("Partition_location -- True")
 			filtered_partitions = self.filter_partitions_to_delete(max_partitions)
-			return "\n".join([f"hdfs dfs -rm -r  /santander/bi-corp/bdr/bkup/bkup_dag/{self.tabla}_bkup_dag/{list(self.partitions_dict())[0]}={partition[0]}" for partition in filtered_partitions]) 
+			return "\n".join([f"hdfs dfs -rm -r  /path/to/bkup_dag/{self.tabla}_bkup_dag/{list(self.partitions_dict())[0]}={partition[0]}" for partition in filtered_partitions]) 
 		
 		else:
 			log.info("Partition_location -- False")
@@ -303,7 +304,7 @@ class BorradoParticiones(CargaAbstracta):
 			partition_column = list(self.partitions_dict().keys())[0]
 			for partition in partitions_drop:
 				log.info(f"partición esperada?:{partition}")
-				queries.append(f"ALTER TABLE bi_corp_bdr.{self.tabla}_bkup_dag DROP IF EXISTS PARTITION({partition_column}='{''.join(partition[0])}')")
+				queries.append(f"ALTER TABLE {self.base_de_datos}.{self.tabla}_bkup_dag DROP IF EXISTS PARTITION({partition_column}='{''.join(partition[0])}')")
 			return queries
 		else:
 			log.info("Drop_partitions_query -- False")
@@ -334,14 +335,14 @@ class ComandosBash:
 		return out.split("\n")
 
 	def bash_already_exists(self):
-		ls_grep_ComandosBash = " , ".join(self.bash_command(strings="hdfs dfs -ls /santander/bi-corp/bdr/bkup/bkup_files |grep ComandosBash.sh "))
+		ls_grep_ComandosBash = " , ".join(self.bash_command(strings="hdfs dfs -ls /path/to/bkup_files |grep ComandosBash.sh "))
 		return "ComandosBash.sh" in  ls_grep_ComandosBash
 
 
 	def read_write_file(self):
 		if self.bash_already_exists():
 			log.info(f"Read Write File -- Existe el archivo ComandosBash.sh, borrándolo")
-			self.bash_command("hdfs dfs -rm /santander/bi-corp/bdr/bkup/bkup_files/ComandosBash.sh")
+			self.bash_command("hdfs dfs -rm /path/to/bkup_files/ComandosBash.sh")
 		with open(self.path + self.filename, self.mode) as f:
 			log.info(f"Read Write File -- Creando archivo ComandosBash.sh ")
 			if self.mode == "w":
@@ -355,7 +356,9 @@ if __name__ == "__main__":
 	tablas = os.path.expandvars("$tablas").strip("[").strip("]").split(",")
 	max_partitions = int(os.path.expandvars("$max_partitions"))
 	carga_inicial = str(os.path.expandvars("$initial_load"))
+	base_de_datos = str(os.path.expandvars("$base_de_datos"))
 	carga_inicial = True if carga_inicial == "True" or carga_inicial else False
+
 
 	session_y_logs = SparkSessionYLogs()
 	spark = session_y_logs.get_contexts()
@@ -371,18 +374,18 @@ if __name__ == "__main__":
 
 		if carga_inicial:
 			tabla = str(tabla)
-			tabla_carga_inicial = ArmadoDeQueriesCargaInicial(tabla)	
+			tabla_carga_inicial = ArmadoDeQueriesCargaInicial(tabla, base_de_datos)	
 			tabla_carga_inicial.sql_sql(max_partitions)
 
 		else:
 			tabla = str(tabla)
-			tabla_bkup = ArmadoDeQueries(tabla)
+			tabla_bkup = ArmadoDeQueries(tabla, base_de_datos)
 			tabla_bkup.sql_sql()
-			delete_partitions = BorradoParticiones(tabla)
+			delete_partitions = BorradoParticiones(tabla, base_de_datos)
 			bash_generator.append_strings(string_to_write=delete_partitions.partition_location(max_partitions))
 			delete_partitions.drop_partitions(max_partitions)
 
-	bash_generator.append_strings(string_to_write="hdfs dfs -rm /santander/bi-corp/bdr/bkup/bkup_files/ComandosBash.sh")
+	bash_generator.append_strings(string_to_write="hdfs dfs -rm /path/to/bkup_files/ComandosBash.sh")
 	bash_generator.read_write_file()
-	bash_generator.bash_command("hdfs dfs -put ComandosBash.sh /santander/bi-corp/bdr/bkup/bkup_files")
+	bash_generator.bash_command("hdfs dfs -put ComandosBash.sh /path/to/bkup_files")
 
