@@ -25,7 +25,7 @@ class CargaAbstracta:
 	def __init__(self , tabla, base_de_datos, partition = None):
 		self.partition = partition
 		self.tabla = tabla
-        self.base_de_datos = base_de_datos
+        	self.base_de_datos = base_de_datos
 
 
 	def get_contexts(self):
