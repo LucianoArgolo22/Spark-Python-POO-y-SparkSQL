@@ -3,9 +3,9 @@ Automatic Loader that creates (if necessary) and load with parametry partitions 
 
 Its purpose is to generate a backup of all the productive tables that are requested, with an X number of partitions, thus allowing the recovery of lost information in the event of an error.
 
-IMPORTANT: The backuper.py (the file you work with today) is not designed for tables with more than one field as a partition (if you tolerate multiple partitions of a single field), they are still cases to be evaluated.
+IMPORTANT: The backuper.py (the file you work with today) is not designed for tables with more than one field as a partition (it can tolerate multiple partitions of a single field), they are still cases to be evaluated.
 
-The parameters that child receives:
+The parameters that it receives:
 
  - Initial_load : receives by parameter True or False.
 If True, it will generate a backup of the number of partitions that the productive table has from the most current, backwards, defined the number of partitions to save by max_partitions.
