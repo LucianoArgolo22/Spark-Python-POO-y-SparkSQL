@@ -1,4 +1,4 @@
-# Spark-Python-POO-y-SparkSQL
+# Spark-Python-POO-and-SparkSQL
 Automatic Loader that creates (if necessary) and load with parametry partitions of tables (it infers all the schema by itself).
 
 Its purpose is to generate a backup of all the productive tables that are requested, with an X number of partitions, thus allowing the recovery of lost information in the event of an error.
