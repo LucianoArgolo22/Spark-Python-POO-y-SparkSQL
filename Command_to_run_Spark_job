@@ -1,0 +1,13 @@
+spark2-submit \
+--master yarn \
+--py-files /path/to/backuplib.py \
+--conf spark.yarn.appMasterEnv.Load=3 \
+--conf spark.yarn.appMasterEnv.data_base='trial_db' \
+--conf spark.yarn.appMasterEnv.tablas='table1,table2' \
+--conf spark.yarn.appMasterEnv.History_load='True' \
+--conf spark.yarn.appMasterEnv.Max_over_delete=0 \
+--num-executors 5 \
+--executor-cores 5 \
+--executor-memory 8G \
+--verbose \
+--deploy-mode cluster /path/to/backuper.py
