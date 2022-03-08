@@ -250,7 +250,7 @@ class ArmadoDeQueries(CargaAbstracta):
 						({self.column_names_string()}) 
 						partitioned by ({partitions})
 						 stored as parquet 
-						 location 'hdfs://namesrvprod/santander/bi-corp/bdr/bkup/bkup_dag/{self.tabla}_bkup_dag'"""
+						 location 'path/to/bkup_dag/{self.tabla}_bkup_dag'"""
 		log.info(f"La Query generada para crear la tabla backup de '{self.tabla}' es: \n {string}")
 		return string
 
@@ -356,7 +356,7 @@ class BorradoParticiones(CargaAbstracta):
 		if self.validacion_tiene_particiones(cantidad = Load):
 			log.info("Partition_location -- True")
 			filtered_partitions = self.filter_partitions_to_delete(Load)
-			return "\n".join([f"hdfs dfs -rm -r  /santander/bi-corp/bdr/bkup/bkup_dag/{self.tabla}_bkup_dag/{list(self.partitions_dict())[0]}={partition[0]}" for partition in filtered_partitions]) 
+			return "\n".join([f"hdfs dfs -rm -r  /path/to/bkup_dag/{self.tabla}_bkup_dag/{list(self.partitions_dict())[0]}={partition[0]}" for partition in filtered_partitions]) 
 		
 		else:
 			log.info("Partition_location -- False")
@@ -429,7 +429,7 @@ class ComandosBash:
 		return out.split("\n")
 
 	# def bash_already_exists(self):
-	# 	ls_grep_ComandosBash = " , ".join(self.bash_command(strings="hdfs dfs -ls /santander/bi-corp/bdr/bkup/bkup_files |grep ComandosBash.sh "))
+	# 	ls_grep_ComandosBash = " , ".join(self.bash_command(strings="hdfs dfs -ls /path/to/bkup_files |grep ComandosBash.sh "))
 	# 	return "ComandosBash.sh" in  ls_grep_ComandosBash
 
 	def read_write_file(self):
