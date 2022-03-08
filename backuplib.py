@@ -29,7 +29,7 @@ class SparkSessionYLogs:
 		return spark
 
 class CargaAbstracta:
-	def __init__(self, tabla, spark, partition = None):
+	def __init__(self, tabla, spark, data_base, partition = None):
 		'''
 		Constructor for the class.
 		:param tabla: The dataset.
@@ -38,6 +38,7 @@ class CargaAbstracta:
 		self.partition = partition
 		self.tabla = tabla
 		self.spark = spark
+		self.data_base = data_base
 
 
 	def column_names(self):
@@ -45,7 +46,7 @@ class CargaAbstracta:
 		Returns the column names of the table.
 		:return: A list of column names.
 		'''
-		query = self.spark.sql(f"select * from bi_corp_bdr.{self.tabla} limit 0")
+		query = self.spark.sql(f"select * from {self.data_base}.{self.tabla} limit 0")
 		return query.columns
 
 	def colum_names_without_string(self):
@@ -102,7 +103,7 @@ class CargaAbstracta:
 		Returns the names of the partitions in the database.
 		:return: A list of partition names.
 		'''
-		tablas = self.spark.sql("show tables in bi_corp_bdr").collect()
+		tablas = self.spark.sql(f"show tables in {self.data_base}").collect()
 		return [tabla[1] for tabla in tablas]
 
 	def tabla_in_DB(self):
@@ -144,7 +145,7 @@ class CargaAbstracta:
 		Selects the partitions of the dataset.
 		:return: A list of the partitions.
 		'''
-		return f"select distinct {self.partition_without_string()} from bi_corp_bdr.{self.tabla}_bkup_dag order by {self.partition_without_string()} desc "
+		return f"select distinct {self.partition_without_string()} from {self.data_base}.{self.tabla}_bkup_dag order by {self.partition_without_string()} desc "
 
 	def sort_partitions(self, limit = 1):	
 		'''
@@ -191,7 +192,7 @@ class CargaAbstracta:
 		:param tabla_partition: The table to be partitioned.
 		:return: The partitions of the table.
 		'''
-		return self.spark.sql(f"show partitions bi_corp_bdr.{tabla_partition}")
+		return self.spark.sql(f"show partitions {self.data_base}.{tabla_partition}")
 
 	def validacion_tiene_particiones(self, cantidad = 0, bkup = True):
 		'''
@@ -229,10 +230,10 @@ class ArmadoDeQueries(CargaAbstracta):
 		Generates a query to insert data into the backup table.
 		:return: A string containing the query.
 		'''
-		string = f"""	                insert overwrite table bi_corp_bdr.{self.tabla}_bkup_dag 
+		string = f"""	                insert overwrite table {self.data_base}.{self.tabla}_bkup_dag 
 						partition ({(self.insert_partition())}) 
 						select {", ".join(self.filtering_partition_from_column_names())}
-						from bi_corp_bdr.{self.tabla}
+						from {self.data_base}.{self.tabla}
 						where {self.insert_where()}
 						"""
 		log.info(f"La Query generada para insertar datos en la tabla backup de '{self.tabla}_bkup_dag' es: \n {string}")
@@ -245,7 +246,7 @@ class ArmadoDeQueries(CargaAbstracta):
 		:return: A string containing the query.
 		'''
 		partitions = self.partition_string() 
-		string = f"""	                 create external table if not exists bi_corp_bdr.{self.tabla}_bkup_dag 
+		string = f"""	                 create external table if not exists {self.data_base}.{self.tabla}_bkup_dag 
 						({self.column_names_string()}) 
 						partitioned by ({partitions})
 						 stored as parquet 
@@ -265,8 +266,8 @@ class ArmadoDeQueries(CargaAbstracta):
 		                        when campo1 = campo2 then False 
 		                        else True
 		                        end as cumple
-		                from    (select 1 as id, count(*) as campo1 from bi_corp_bdr.{self.tabla} where {self.insert_where()}) a 
-		                        inner join (select 1 as id, count(*) as campo2 from bi_corp_bdr.{self.tabla}_bkup_dag where {self.insert_where(bkup=True)}) b
+		                from    (select 1 as id, count(*) as campo1 from {self.data_base}.{self.tabla} where {self.insert_where()}) a 
+		                        inner join (select 1 as id, count(*) as campo2 from {self.data_base}.{self.tabla}_bkup_dag where {self.insert_where(bkup=True)}) b
 		                        on  a.id = b.id	"""
 
 
@@ -280,7 +281,7 @@ class ArmadoDeQueries(CargaAbstracta):
 		'''
 			
 		if self.tabla_in_DB():
-			log.info(f"La Tabla '{self.tabla}' se encuentra en la base de datos bi_corp_bdr")
+			log.info(f"La Tabla '{self.tabla}' se encuentra en la base de datos {self.data_base}")f
 			self.spark.sql(self.create_table_query())
 			
 			if self.validacion_tiene_particiones():
@@ -309,10 +310,10 @@ class ArmadoDeQueriesCargaInicial(ArmadoDeQueries):
 		:return: A string containing the query to be executed.
 		'''
 		log.info("Partición que recibe insert_into_query(): {partition}")
-		string = f"""	                insert overwrite table bi_corp_bdr.{self.tabla}_bkup_dag 
+		string = f"""	                insert overwrite table {self.data_base}.{self.tabla}_bkup_dag 
 						partition ({(self.partition_without_string())}) 
 						select *
-						from bi_corp_bdr.{self.tabla}
+						from {self.data_base}.{self.tabla}
 						where {self.insert_where(partition, operator = ">=")}
 						"""
 		log.info(f"La Query generada para insertar datos en la tabla backup de '{self.tabla}_bkup_dag' es: \n {string}")
@@ -325,7 +326,7 @@ class ArmadoDeQueriesCargaInicial(ArmadoDeQueries):
 		:return: None
 		'''
 		if self.tabla_in_DB():
-			log.info(f"La Tabla '{self.tabla}' se encuentra en la base de datos bi_corp_bdr")
+			log.info(f"La Tabla '{self.tabla}' se encuentra en la base de datos {self.data_base}")
 			self.spark.sql(self.create_table_query())
 			self.spark.sql(self.insert_into_query(partition))
 			log.info(f"TABLE {self.tabla}_bkup_dag LOADED")
@@ -377,7 +378,7 @@ class BorradoParticiones(CargaAbstracta):
 			partition_column = list(self.partitions_dict().keys())[0]
 			for partition in partitions_drop:
 				log.info(f"partición esperada?:{partition}")
-				queries.append(f"ALTER TABLE bi_corp_bdr.{self.tabla}_bkup_dag DROP IF EXISTS PARTITION({partition_column}='{''.join(partition[0])}')")
+				queries.append(f"ALTER TABLE {self.data_base}.{self.tabla}_bkup_dag DROP IF EXISTS PARTITION({partition_column}='{''.join(partition[0])}')")
 			return queries
 		else:
 			log.info("Drop_partitions_query -- False")
@@ -447,4 +448,3 @@ class ComandosBash:
 			else:
 				pass
 				#se puede agregar
-
