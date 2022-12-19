@@ -4,7 +4,7 @@ Automatic Loader that creates (if necessary) and load with parametry partitions 
 
 Its purpose is to generate a backup of all the productive tables that are requested, with an X number of partitions, thus allowing the recovery of lost information in the event of an error.
 
-IMPORTANT: The backuper.py (the file that the dag works with) is not designed for tables with more than one field as a partition (if it tolerates having multiple partitions of a single field), these are still cases to be evaluated.
+IMPORTANT: The backuper.py (the file that the dag works with) is not designed for tables with more than one field as a partition (it tolerates having multiple partitions of a single field), these are still cases to be evaluated.
 
 The parameters it receives are:
 
