@@ -24,3 +24,9 @@ Examples:
  - If I load the dag with parameters History_load = True, Load = 3 and tables = jm_flujos_lucho (test table), it will generate a bkup table for us if it is not created, and it will save the 4 most current partitions (Recommended use to load a new table with the necessary partitions)
  - If I load the dag with parameters History_load = False, Max_over_delete = 0 and tables = jm_flujos_lucho (test table). Based on the previous example, we will already have the table created and with 4 partitions, but since we indicated that the maximum number of partitions be 2, it will delete the last 2 and leave us only the first 2.
  - If I load the dag with parameters History_load = False, Max_over_delete = 3 and tables = jm_posic_contr, it will generate a bkup table for us if it is not created, and it will save only the last partition (since initial_load is False), since it had no previous partitions, and we load only one partition, but we told the maximum number of partitions to be 3, it won't delete any partition because it doesn't meet the conditions.
+ 
+ 
+## The Flux Diagram:
+ ![descarga](https://user-images.githubusercontent.com/75091406/208456260-26b22ca5-1c7d-4975-88e1-95afbf459f65.png)
+
+ 
